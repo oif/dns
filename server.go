@@ -707,7 +707,7 @@ func (srv *Server) handleCloseSignal(shutdown chan os.Signal, quitting chan stru
 	<-shutdown
 	close(quitting)
 	signal.Stop(shutdown)
-	// close(shutdown)
+	close(shutdown)
 }
 
 // WriteMsg implements the ResponseWriter.WriteMsg method.
