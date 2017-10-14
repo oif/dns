@@ -431,16 +431,14 @@ func (srv *Server) Shutdown() error {
 	srv.started = false
 	defer srv.lock.Unlock() // to make sure re-serve works do after shutdown
 
-	switch srv.Net {
-	case "tcp", "tcp4", "tcp6":
-		shutdownSignal := srv.getShutdownSignal()
-		shutdownSignal <- syscall.SIGINT
-	}
-
 	if srv.PacketConn != nil {
 		srv.PacketConn.Close()
 	}
 	if srv.Listener != nil {
+		// only TCP listener needs shutdown signal
+		shutdownSignal := srv.getShutdownSignal()
+		shutdownSignal <- syscall.SIGINT
+
 		srv.Listener.Close()
 	}
 
@@ -475,7 +473,6 @@ func (srv *Server) serveTCP(l net.Listener) error {
 	if srv.NotifyStartedFunc != nil {
 		srv.NotifyStartedFunc()
 	}
-
 	reader := Reader(&defaultReader{srv})
 	if srv.DecorateReader != nil {
 		reader = srv.DecorateReader(reader)
@@ -519,7 +516,9 @@ func (srv *Server) serveTCP(l net.Listener) error {
 		if err != nil {
 			continue
 		}
+		srv.lock.RLock()
 		srv.inFlight.Add(1)
+		srv.lock.RUnlock()
 		go srv.serve(rw.RemoteAddr(), handler, m, nil, nil, rw)
 	}
 }
@@ -555,7 +554,9 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 		if err != nil {
 			continue
 		}
+		srv.lock.RLock()
 		srv.inFlight.Add(1)
+		srv.lock.RUnlock()
 		go srv.serve(s.RemoteAddr(), handler, m, l, s, nil)
 	}
 }
